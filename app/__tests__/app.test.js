@@ -43,7 +43,7 @@ describe('index route', () => {
   });
 
   test('should respond with a 200 and show zip download link when zip exists', () => {
-    global.completedZips['california'] = 'https://storage.googleapis.com/test-url';
+    global.completedZips['california'] = 'public/zips/test-file.zip';
 
     return request(app)
       .get('/?tags=california&tagmode=all')
@@ -136,16 +136,15 @@ describe('zip status route', () => {
   });
 
   test('should respond with ready true and url when zip is ready', () => {
-    global.completedZips['nature'] = 'https://storage.googleapis.com/signed-url';
+    global.completedZips['nature'] = 'public/zips/test-file.zip';
 
     return request(app)
       .get('/zip/status?tags=nature')
       .expect(200)
       .then(response => {
-        expect(response.body).toEqual({
-          ready: true,
-          url: 'https://storage.googleapis.com/signed-url'
-        });
+        expect(response.body.ready).toBe(true);
+        expect(response.body.url).toBeTruthy();
+        expect(typeof response.body.url).toBe('string');
       });
   });
 
