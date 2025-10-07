@@ -38,21 +38,8 @@ async function zipAndUploadImages(tags) {
       zlib: { level: 9 }
     });
 
-    const filename = `photos-${Date.now()}-${Math.random().toString(36).substring(7)}.zip`;
-
-    const file = storage
-      .bucket(process.env.STORAGE_BUCKET)
-      .file(`public/zips/${filename}`);
-
-    const uploadStream = file.createWriteStream({
-      metadata: {
-        contentType: 'application/zip',
-        cacheControl: 'private'
-      },
-      resumable: false
-    });
-
-    archive.pipe(uploadStream);
+    const chunks = [];
+    archive.on('data', (chunk) => chunks.push(chunk));
 
     for (let i = 0; i < photosToZip.length; i++) {
       const photo = photosToZip[i];
@@ -67,14 +54,35 @@ async function zipAndUploadImages(tags) {
     }
 
     await archive.finalize();
+    const zipBuffer = Buffer.concat(chunks);
+
+    const uploadedFile = {
+      mimetype: 'application/zip',
+      buffer: zipBuffer
+    };
+
+    const filename = `photos-${Date.now()}-${Math.random().toString(36).substring(7)}.zip`;
+
+    const file = await storage
+      .bucket(process.env.STORAGE_BUCKET)
+      .file(`public/zips/${filename}`);
+
+    const stream = file.createWriteStream({
+      metadata: {
+        contentType: uploadedFile.mimetype,
+        cacheControl: 'private'
+      },
+      resumable: false
+    });
 
     await new Promise((resolve, reject) => {
-      uploadStream.on('error', (err) => {
+      stream.on('error', (err) => {
         reject(err);
       });
-      uploadStream.on('finish', () => {
-        resolve();
+      stream.on('finish', () => {
+        resolve('Ok');
       });
+      stream.end(uploadedFile.buffer);
     });
 
     console.log(`Zip uploaded successfully: ${filename}`);
