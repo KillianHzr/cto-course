@@ -3,7 +3,6 @@ const { Storage } = require('@google-cloud/storage');
 const archiver = require('archiver');
 const moment = require('moment');
 const got = require('got');
-const { Readable } = require('stream');
 
 const pubsub = new PubSub({
   projectId: process.env.PROJECT_ID

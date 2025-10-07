@@ -1,11 +1,21 @@
 const request = require('supertest');
 
 jest.mock('../../app/photo_model');
+jest.mock('../../app/pubsub-consumer', () => ({
+  listenForMessages: jest.fn()
+}));
+jest.mock('../../app/pubsub-producer');
+
 const app = require('../../app/server');
+const pubsubProducer = require('../../app/pubsub-producer');
 
 describe('index route', () => {
   afterEach(() => {
     app.server.close();
+  });
+
+  beforeEach(() => {
+    global.completedZips = {};
   });
 
   test('should respond with a 200 with no query parameters', () => {
@@ -32,6 +42,18 @@ describe('index route', () => {
       });
   });
 
+  test('should respond with a 200 and show zip download link when zip exists', () => {
+    global.completedZips['california'] = 'https://storage.googleapis.com/test-url';
+
+    return request(app)
+      .get('/?tags=california&tagmode=all')
+      .expect('Content-Type', /html/)
+      .expect(200)
+      .then(response => {
+        expect(response.text).toMatch(/<div class="panel panel-default search-results">/);
+      });
+  });
+
   test('should respond with a 200 with invalid query parameters', () => {
     return request(app)
       .get('/?tags=california123&tagmode=all')
@@ -49,6 +71,90 @@ describe('index route', () => {
       .expect(500)
       .then(response => {
         expect(response.body).toEqual({ error: 'Internal server error' });
+      });
+  });
+});
+
+describe('zip route', () => {
+  afterEach(() => {
+    app.server.close();
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('should respond with redirect when creating zip with valid tags', () => {
+    pubsubProducer.publishMessage.mockResolvedValue('message-id-123');
+
+    return request(app)
+      .post('/zip?tags=nature')
+      .expect(302)
+      .then(response => {
+        expect(response.headers.location).toMatch(/\/\?tags=nature&tagmode=any&zipRequested=true/);
+        expect(pubsubProducer.publishMessage).toHaveBeenCalledWith('nature');
+      });
+  });
+
+  test('should respond with 400 when tags parameter is missing', () => {
+    return request(app)
+      .post('/zip')
+      .expect(400)
+      .then(response => {
+        expect(response.body.error).toBe('Tags parameter is required');
+      });
+  });
+
+  test('should respond with 500 when publishMessage fails', () => {
+    pubsubProducer.publishMessage.mockRejectedValue(new Error('Publish failed'));
+
+    return request(app)
+      .post('/zip?tags=nature')
+      .expect(500)
+      .then(response => {
+        expect(response.body.error).toBe('Failed to create zip job');
+      });
+  });
+});
+
+describe('zip status route', () => {
+  afterEach(() => {
+    app.server.close();
+  });
+
+  beforeEach(() => {
+    global.completedZips = {};
+  });
+
+  test('should respond with ready false when zip is not ready', () => {
+    return request(app)
+      .get('/zip/status?tags=nature')
+      .expect(200)
+      .then(response => {
+        expect(response.body).toEqual({ ready: false, url: null });
+      });
+  });
+
+  test('should respond with ready true and url when zip is ready', () => {
+    global.completedZips['nature'] = 'https://storage.googleapis.com/signed-url';
+
+    return request(app)
+      .get('/zip/status?tags=nature')
+      .expect(200)
+      .then(response => {
+        expect(response.body).toEqual({
+          ready: true,
+          url: 'https://storage.googleapis.com/signed-url'
+        });
+      });
+  });
+
+  test('should respond with 400 when tags parameter is missing', () => {
+    return request(app)
+      .get('/zip/status')
+      .expect(400)
+      .then(response => {
+        expect(response.body.error).toBe('Tags parameter is required');
       });
   });
 });

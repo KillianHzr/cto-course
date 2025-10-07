@@ -43,7 +43,7 @@ function route(app) {
         return res.render('index', ejsLocalVariables);
       })
       .catch(error => {
-        console.log('aspdfonaposd', error)
+        console.error('Error fetching photos:', error);
         return res.status(500).send({ error });
       });
   });
