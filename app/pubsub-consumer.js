@@ -1,7 +1,6 @@
 const { PubSub } = require('@google-cloud/pubsub');
 const { Storage } = require('@google-cloud/storage');
 const archiver = require('archiver');
-const moment = require('moment');
 const got = require('got');
 
 const pubsub = new PubSub({
@@ -87,19 +86,8 @@ async function zipAndUploadImages(tags) {
 
     console.log(`Zip uploaded successfully: ${filename}`);
 
-    const options = {
-      action: 'read',
-      expires: moment().add(2, 'days').unix() * 1000
-    };
-
-    const [signedUrl] = await storage
-      .bucket(process.env.STORAGE_BUCKET)
-      .file(`public/zips/${filename}`)
-      .getSignedUrl(options);
-
-    global.completedZips[tags] = signedUrl;
+    global.completedZips[tags] = `public/zips/${filename}`;
     console.log(`Zip job completed for tags: ${tags}`);
-    console.log(`Download URL: ${signedUrl}`);
 
   } catch (error) {
     console.error(`Error processing zip for tags ${tags}:`, error);

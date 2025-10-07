@@ -1,6 +1,11 @@
 const formValidator = require('./form_validator');
 const photoModel = require('./photo_model');
 const pubsubProducer = require('./pubsub-producer');
+const { rateLimiter } = require('./rate-limiter');
+const { Storage } = require('@google-cloud/storage');
+const moment = require('moment');
+
+const storage = new Storage();
 
 function route(app) {
   app.get('/', (req, res) => {
@@ -32,12 +37,21 @@ function route(app) {
     // get photos from flickr public feed api
     return photoModel
       .getFlickrPhotos(tags, tagmode)
-      .then(photos => {
+      .then(async photos => {
         ejsLocalVariables.photos = photos;
         ejsLocalVariables.searchResults = true;
 
         if (global.completedZips && global.completedZips[tags]) {
-          ejsLocalVariables.zipUrl = global.completedZips[tags];
+          const name = global.completedZips[tags];
+          const options = {
+            action: 'read',
+            expires: moment().add(2, 'days').unix() * 1000
+          };
+          const signedUrls = await storage
+            .bucket(process.env.STORAGE_BUCKET)
+            .file(name)
+            .getSignedUrl(options);
+          ejsLocalVariables.zipUrl = signedUrls[0];
         }
 
         return res.render('index', ejsLocalVariables);
@@ -48,7 +62,7 @@ function route(app) {
       });
   });
 
-  app.post('/zip', async (req, res) => {
+  app.post('/zip', rateLimiter, async (req, res) => {
     const tags = req.query.tags;
     const tagmode = req.query.tagmode || 'any';
 
@@ -65,7 +79,7 @@ function route(app) {
     }
   });
 
-  app.get('/zip/status', (req, res) => {
+  app.get('/zip/status', rateLimiter, async (req, res) => {
     const tags = req.query.tags;
 
     if (!tags) {
@@ -74,9 +88,26 @@ function route(app) {
 
     const isReady = global.completedZips && global.completedZips[tags];
 
+    if (isReady) {
+      const name = global.completedZips[tags];
+      const options = {
+        action: 'read',
+        expires: moment().add(2, 'days').unix() * 1000
+      };
+      const signedUrls = await storage
+        .bucket(process.env.STORAGE_BUCKET)
+        .file(name)
+        .getSignedUrl(options);
+
+      return res.json({
+        ready: true,
+        url: signedUrls[0]
+      });
+    }
+
     return res.json({
-      ready: !!isReady,
-      url: isReady || null
+      ready: false,
+      url: null
     });
   });
 }

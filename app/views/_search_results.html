@@ -8,8 +8,10 @@
 
     <% if (photos.length) { %>
 
+      <div id="toast-container"></div>
+
       <div style="margin-bottom: 15px;">
-        <form method="POST" action="/zip?tags=<%= encodeURIComponent(tagsParameter) %>&tagmode=<%= tagmodeParameter || 'any' %>" style="display: inline;" id="zipForm">
+        <form id="zipForm" style="display: inline;">
           <button type="submit" class="btn btn-primary" id="createZipBtn">
             <span class="glyphicon glyphicon-compressed"></span> Create ZIP of first 10 photos
           </button>
@@ -25,6 +27,126 @@
             <span class="glyphicon glyphicon-download"></span> Download ZIP
           </a>
         </div>
+      </div>
+
+      <script>
+        function showToast(message, type = 'error') {
+          const container = document.getElementById('toast-container');
+          const toast = document.createElement('div');
+          toast.className = 'toast toast-' + type;
+          toast.innerHTML = '<strong>' + (type === 'error' ? 'X ' : '✓ ') + '</strong>' + message;
+
+          container.appendChild(toast);
+
+          setTimeout(() => {
+            toast.classList.add('toast-show');
+          }, 10);
+
+          setTimeout(() => {
+            toast.classList.remove('toast-show');
+            setTimeout(() => {
+              container.removeChild(toast);
+            }, 300);
+          }, 4000);
+        }
+
+        document.getElementById('zipForm').addEventListener('submit', function(e) {
+          e.preventDefault();
+
+          const tags = '<%= tagsParameter %>';
+          const tagmode = '<%= tagmodeParameter || "any" %>';
+
+          fetch('/zip?tags=' + encodeURIComponent(tags) + '&tagmode=' + tagmode, {
+            method: 'POST',
+            redirect: 'manual'
+          })
+          .then(response => {
+            if (response.status === 429) {
+              return response.json().then(data => {
+                showToast(data.error + (data.retryAfter ? ' Retry in ' + data.retryAfter + 's' : ''), 'error');
+                throw new Error('Rate limited');
+              });
+            }
+            if (response.type === 'opaqueredirect' || response.status === 302 || response.ok) {
+              document.getElementById('zipLoader').style.display = 'inline-block';
+
+              let pollInterval;
+              function checkZipStatus() {
+                fetch('/zip/status?tags=' + encodeURIComponent(tags))
+                  .then(response => response.json())
+                  .then(data => {
+                    if (data.ready && data.url) {
+                      clearInterval(pollInterval);
+                      document.getElementById('zipLoader').style.display = 'none';
+                      document.getElementById('zipDownloadBtn').style.display = 'inline-block';
+                      document.getElementById('downloadLink').href = data.url;
+                    }
+                  })
+                  .catch(error => {
+                    console.error('Error checking zip status:', error);
+                  });
+              }
+
+              checkZipStatus();
+              pollInterval = setInterval(checkZipStatus, 3000);
+
+              setTimeout(function() {
+                clearInterval(pollInterval);
+                document.getElementById('zipLoader').style.display = 'none';
+                showToast('ZIP creation is taking longer than expected. Please refresh the page later.', 'error');
+              }, 120000);
+              return;
+            }
+            throw new Error('Unexpected response');
+          })
+          .catch(error => {
+            if (error.message !== 'Rate limited') {
+              console.error('Zip creation error:', error);
+            }
+          });
+        });
+      </script>
+
+      <style>
+        #toast-container {
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          z-index: 9999;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .toast {
+          background-color: #f44336;
+          color: white;
+          padding: 16px 24px;
+          border-radius: 4px;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+          min-width: 300px;
+          opacity: 0;
+          transform: translateX(400px);
+          transition: all 0.3s ease;
+        }
+
+        .toast-show {
+          opacity: 1;
+          transform: translateX(0);
+        }
+
+        .toast-success {
+          background-color: #4caf50;
+        }
+
+        .toast-error {
+          background-color: #f44336;
+        }
+
+        .toast strong {
+          margin-right: 8px;
+        }
+      </style>
 
         <% if (zipRequested) { %>
           <script>
@@ -55,13 +177,6 @@
               checkZipStatus();
 
               pollInterval = setInterval(checkZipStatus, 3000);
-
-              setTimeout(function() {
-                clearInterval(pollInterval);
-                document.getElementById('zipLoader').style.display = 'none';
-                document.getElementById('createZipBtn').disabled = false;
-                alert('ZIP creation is taking longer than expected. Please refresh the page later.');
-              }, 120000);
             });
           </script>
         <% } %>
