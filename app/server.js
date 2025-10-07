@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const favicon = require('serve-favicon');
 const path = require('path');
+const { initRedis } = require('./rate-limiter');
 
 const app = express();
 
@@ -18,9 +19,14 @@ require('./route')(app);
 const pubsubConsumer = require('./pubsub-consumer');
 pubsubConsumer.listenForMessages();
 
+async function startServer() {
+  await initRedis();
 
-const port = process.env.PORT || 3000;
-app.server = app.listen(port);
-console.log(`listening on port ${port}`);
+  const port = process.env.PORT || 3000;
+  app.server = app.listen(port);
+  console.log(`listening on port ${port}`);
+}
+
+startServer();
 
 module.exports = app;

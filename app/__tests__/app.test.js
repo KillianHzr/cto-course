@@ -5,13 +5,35 @@ jest.mock('../../app/pubsub-consumer', () => ({
   listenForMessages: jest.fn()
 }));
 jest.mock('../../app/pubsub-producer');
+jest.mock('../../app/rate-limiter', () => ({
+  rateLimiter: (req, res, next) => next(),
+  initRedis: jest.fn().mockResolvedValue(undefined),
+  getRedisClient: jest.fn().mockReturnValue(null)
+}));
 
 const app = require('../../app/server');
 const pubsubProducer = require('../../app/pubsub-producer');
 
 describe('index route', () => {
+  beforeAll(() => {
+    return new Promise(resolve => {
+      if (app.server) {
+        resolve();
+      } else {
+        const checkServer = setInterval(() => {
+          if (app.server) {
+            clearInterval(checkServer);
+            resolve();
+          }
+        }, 100);
+      }
+    });
+  });
+
   afterEach(() => {
-    app.server.close();
+    if (app.server) {
+      app.server.close();
+    }
   });
 
   beforeEach(() => {
@@ -76,8 +98,25 @@ describe('index route', () => {
 });
 
 describe('zip route', () => {
+  beforeAll(() => {
+    return new Promise(resolve => {
+      if (app.server) {
+        resolve();
+      } else {
+        const checkServer = setInterval(() => {
+          if (app.server) {
+            clearInterval(checkServer);
+            resolve();
+          }
+        }, 100);
+      }
+    });
+  });
+
   afterEach(() => {
-    app.server.close();
+    if (app.server) {
+      app.server.close();
+    }
   });
 
   beforeEach(() => {
@@ -118,8 +157,25 @@ describe('zip route', () => {
 });
 
 describe('zip status route', () => {
+  beforeAll(() => {
+    return new Promise(resolve => {
+      if (app.server) {
+        resolve();
+      } else {
+        const checkServer = setInterval(() => {
+          if (app.server) {
+            clearInterval(checkServer);
+            resolve();
+          }
+        }, 100);
+      }
+    });
+  });
+
   afterEach(() => {
-    app.server.close();
+    if (app.server) {
+      app.server.close();
+    }
   });
 
   beforeEach(() => {
