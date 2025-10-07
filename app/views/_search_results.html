@@ -8,6 +8,65 @@
 
     <% if (photos.length) { %>
 
+      <div style="margin-bottom: 15px;">
+        <form method="POST" action="/zip?tags=<%= encodeURIComponent(tagsParameter) %>&tagmode=<%= tagmodeParameter || 'any' %>" style="display: inline;" id="zipForm">
+          <button type="submit" class="btn btn-primary" id="createZipBtn">
+            <span class="glyphicon glyphicon-compressed"></span> Create ZIP of first 10 photos
+          </button>
+        </form>
+
+        <div id="zipLoader" style="display: none; margin-left: 10px;">
+          <span class="glyphicon glyphicon-refresh glyphicon-spin"></span>
+          <span>Creating ZIP...</span>
+        </div>
+
+        <div id="zipDownloadBtn" style="display: none; margin-left: 10px;">
+          <a href="" class="btn btn-success" id="downloadLink">
+            <span class="glyphicon glyphicon-download"></span> Download ZIP
+          </a>
+        </div>
+
+        <% if (zipRequested) { %>
+          <script>
+            document.addEventListener('DOMContentLoaded', function() {
+              document.getElementById('createZipBtn').disabled = true;
+              document.getElementById('zipLoader').style.display = 'inline-block';
+
+              const tags = '<%= tagsParameter %>';
+              let pollInterval;
+
+              function checkZipStatus() {
+                fetch('/zip/status?tags=' + encodeURIComponent(tags))
+                  .then(response => response.json())
+                  .then(data => {
+                    if (data.ready && data.url) {
+                      clearInterval(pollInterval);
+                      document.getElementById('zipLoader').style.display = 'none';
+                      document.getElementById('zipDownloadBtn').style.display = 'inline-block';
+                      document.getElementById('downloadLink').href = data.url;
+                      document.getElementById('createZipBtn').disabled = false;
+                    }
+                  })
+                  .catch(error => {
+                    console.error('Error checking zip status:', error);
+                  });
+              }
+
+              checkZipStatus();
+
+              pollInterval = setInterval(checkZipStatus, 3000);
+
+              setTimeout(function() {
+                clearInterval(pollInterval);
+                document.getElementById('zipLoader').style.display = 'none';
+                document.getElementById('createZipBtn').disabled = false;
+                alert('ZIP creation is taking longer than expected. Please refresh the page later.');
+              }, 120000);
+            });
+          </script>
+        <% } %>
+      </div>
+
       <ul>
         <% photos.forEach(function (photo) { %>
           <li class="list-unstyled">
