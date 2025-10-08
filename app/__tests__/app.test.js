@@ -19,6 +19,15 @@ jest.mock('@google-cloud/storage', () => ({
     }))
   }))
 }));
+jest.mock('firebase-admin', () => ({
+  initializeApp: jest.fn(),
+  credential: {
+    applicationDefault: jest.fn()
+  },
+  database: jest.fn(() => ({
+    ref: jest.fn()
+  }))
+}));
 
 const app = require('../../app/server');
 const pubsubProducer = require('../../app/pubsub-producer');
