@@ -10,6 +10,15 @@ jest.mock('../../app/rate-limiter', () => ({
   initRedis: jest.fn().mockResolvedValue(undefined),
   getRedisClient: jest.fn().mockReturnValue(null)
 }));
+jest.mock('@google-cloud/storage', () => ({
+  Storage: jest.fn(() => ({
+    bucket: jest.fn(() => ({
+      file: jest.fn(() => ({
+        getSignedUrl: jest.fn(() => Promise.resolve(['https://storage.googleapis.com/test-bucket/test-file.zip']))
+      }))
+    }))
+  }))
+}));
 
 const app = require('../../app/server');
 const pubsubProducer = require('../../app/pubsub-producer');
