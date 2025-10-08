@@ -8,7 +8,7 @@
   "private": true,
   "main": "app/server.js",
   "scripts": {
-    "start": "nodemon app/server.js",
+    "start": "node app/server.js",
     "test": "npm run lint && npm run jest",
     "test:e2e": "jest --runInBand e2e_tests/*.test.js",
     "jest": "jest --coverage app/__tests__/*.test.js",
