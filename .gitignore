@@ -3,3 +3,4 @@ npm-debug.log*
 .DS_Store
 google-credentials.json
 .env
+dump.rdb

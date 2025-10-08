@@ -3,6 +3,7 @@ const express = require('express');
 const favicon = require('serve-favicon');
 const path = require('path');
 const { initRedis } = require('./rate-limiter');
+const { initFirebase } = require('./firebase-admin');
 
 const app = express();
 
@@ -21,6 +22,7 @@ pubsubConsumer.listenForMessages();
 
 async function startServer() {
   await initRedis();
+  initFirebase();
 
   const port = process.env.PORT || 3000;
   app.server = app.listen(port);

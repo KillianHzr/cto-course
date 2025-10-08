@@ -188,5 +188,20 @@ describe('rate-limiter', () => {
       const bucketAfter = JSON.parse(bucketDataAfter);
       expect(bucketAfter.tokens).toBeGreaterThan(bucketBefore.tokens);
     }, 10000);
+
+    test('should return 500 when Redis throws an error', async () => {
+      const redisClient = getRedisClient();
+      const originalGet = redisClient.get;
+
+      redisClient.get = jest.fn().mockRejectedValue(new Error('Redis connection failed'));
+
+      await rateLimiter(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.send).toHaveBeenCalledWith({ error: 'Internal server error' });
+      expect(next).not.toHaveBeenCalled();
+
+      redisClient.get = originalGet;
+    });
   });
 });

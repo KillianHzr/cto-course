@@ -2,6 +2,9 @@ const { PubSub } = require('@google-cloud/pubsub');
 const { Storage } = require('@google-cloud/storage');
 const archiver = require('archiver');
 const got = require('got');
+const { initFirebase, getDatabase } = require('./firebase-admin');
+
+initFirebase();
 
 const pubsub = new PubSub({
   projectId: process.env.PROJECT_ID
@@ -86,7 +89,22 @@ async function zipAndUploadImages(tags) {
 
     console.log(`Zip uploaded successfully: ${filename}`);
 
-    global.completedZips[tags] = `public/zips/${filename}`;
+    const filePath = `public/zips/${filename}`;
+    global.completedZips[tags] = filePath;
+
+    const db = getDatabase();
+    const timestamp = Date.now();
+    const filenameWithoutExt = filename.replace(/\./g, '_');
+    const firebasePath = `killianherzer/${timestamp}/${filenameWithoutExt}`;
+
+    await db.ref(firebasePath).set({
+      gcsPath: filePath,
+      tags: tags,
+      createdAt: timestamp,
+      filename: filename
+    });
+
+    console.log(`Data saved to Firebase: ${firebasePath}`);
     console.log(`Zip job completed for tags: ${tags}`);
 
   } catch (error) {
