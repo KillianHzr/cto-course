@@ -6,8 +6,61 @@
     <title>Express App Testing Demo</title>
     <link href="css/bootstrap.min.css" rel="stylesheet">
     <link href="css/style.css" rel="stylesheet">
+    <style>
+      #auth-container {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        text-align: right;
+      }
+      #user-info {
+        display: none;
+        margin-bottom: 10px;
+      }
+      #login-required {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.95);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+      }
+      #login-required.show {
+        display: flex;
+      }
+      .login-box {
+        text-align: center;
+        padding: 40px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      }
+    </style>
   </head>
   <body>
+    <div id="login-required" class="show">
+      <div class="login-box">
+        <h2>Authentification requise</h2>
+        <p>Veuillez vous connecter pour accéder à l'application</p>
+        <button id="login-btn" class="btn btn-primary">
+          <span class="glyphicon glyphicon-log-in"></span> Se connecter avec Google
+        </button>
+      </div>
+    </div>
+
+    <div id="auth-container">
+      <div id="user-info">
+        <span id="user-name"></span>
+        <button id="logout-btn" class="btn btn-sm btn-default">
+          <span class="glyphicon glyphicon-log-out"></span> Se déconnecter
+        </button>
+      </div>
+    </div>
+
     <header class="page-header">
       <div class="container">
         <h1>Express App Testing Demo</h1>

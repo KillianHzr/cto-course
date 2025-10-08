@@ -11,5 +11,141 @@
         </p>
       </div>
     </footer>
+
+    <script type="module">
+      import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+      import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+      import { getDatabase, ref, onValue } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+      const firebaseConfig = {
+        apiKey: "<%= firebaseConfig.apiKey %>",
+        authDomain: "<%= firebaseConfig.authDomain %>",
+        databaseURL: "<%= firebaseConfig.databaseURL %>",
+        projectId: "<%= firebaseConfig.projectId %>",
+        storageBucket: "<%= firebaseConfig.storageBucket %>",
+        messagingSenderId: "<%= firebaseConfig.messagingSenderId %>",
+        appId: "<%= firebaseConfig.appId %>"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+      const provider = new GoogleAuthProvider();
+      const database = getDatabase(app);
+
+      const loginBtn = document.getElementById('login-btn');
+      const logoutBtn = document.getElementById('logout-btn');
+      const loginRequired = document.getElementById('login-required');
+      const userInfo = document.getElementById('user-info');
+      const userName = document.getElementById('user-name');
+
+      loginBtn.addEventListener('click', async () => {
+        try {
+          await signInWithPopup(auth, provider);
+        } catch (error) {
+          console.error('Erreur de connexion:', error);
+          alert('Erreur de connexion: ' + error.message);
+        }
+      });
+
+      logoutBtn.addEventListener('click', async () => {
+        try {
+          await signOut(auth);
+        } catch (error) {
+          console.error('Erreur de déconnexion:', error);
+        }
+      });
+
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          loginRequired.classList.remove('show');
+          userInfo.style.display = 'block';
+          userName.textContent = user.displayName || user.email;
+          loadPreviousZips();
+        } else {
+          loginRequired.classList.add('show');
+          userInfo.style.display = 'none';
+          userName.textContent = '';
+        }
+      });
+
+      function loadPreviousZips() {
+        const zipsListDiv = document.getElementById('zipsList');
+        const previousZipsPanel = document.getElementById('previousZips');
+
+        if (!zipsListDiv) return;
+
+        const zipsRef = ref(database, 'killianherzer');
+
+        onValue(zipsRef, (snapshot) => {
+          const data = snapshot.val();
+
+          if (data) {
+            const zipsList = [];
+
+            Object.keys(data).forEach(timestamp => {
+              Object.keys(data[timestamp]).forEach(filename => {
+                const zipData = data[timestamp][filename];
+                zipsList.push({
+                  timestamp: parseInt(timestamp),
+                  filename: zipData.filename,
+                  tags: zipData.tags,
+                  gcsPath: zipData.gcsPath
+                });
+              });
+            });
+
+            zipsList.sort((a, b) => b.timestamp - a.timestamp);
+
+            zipsListDiv.innerHTML = '';
+
+            zipsList.forEach(zip => {
+              const date = new Date(zip.timestamp);
+              const dateStr = date.toLocaleString();
+
+              const zipItem = document.createElement('div');
+              zipItem.className = 'list-group-item';
+              zipItem.style.marginBottom = '10px';
+              zipItem.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <strong>${zip.filename}</strong><br>
+                    <small class="text-muted">Tags: ${zip.tags} | Created: ${dateStr}</small>
+                  </div>
+                  <button class="btn btn-sm btn-success download-zip-btn" data-tags="${zip.tags}">
+                    <span class="glyphicon glyphicon-download"></span> Download
+                  </button>
+                </div>
+              `;
+
+              zipsListDiv.appendChild(zipItem);
+            });
+
+            document.querySelectorAll('.download-zip-btn').forEach(btn => {
+              btn.addEventListener('click', function() {
+                const tags = this.getAttribute('data-tags');
+                fetch('/zip/status?tags=' + encodeURIComponent(tags))
+                  .then(response => response.json())
+                  .then(data => {
+                    if (data.ready && data.url) {
+                      window.location.href = data.url;
+                    } else {
+                      alert('ZIP not available');
+                    }
+                  })
+                  .catch(error => {
+                    console.error('Error downloading zip:', error);
+                    alert('Error downloading zip');
+                  });
+              });
+            });
+
+            previousZipsPanel.style.display = 'block';
+          } else {
+            zipsListDiv.innerHTML = '<p class="text-muted">No ZIPs generated yet.</p>';
+            previousZipsPanel.style.display = 'block';
+          }
+        });
+      }
+    </script>
   </body>
 </html>
